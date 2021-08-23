@@ -1,0 +1,33 @@
+{
+    "name": "electron-esbuild",
+    "version": "1.0.0",
+    "main": "index.js",
+    "repository": "https://github.com/zardoy/electron-esbuild.git",
+    "author": "Vitaly Turovsky <vital2580@icloud.com>",
+    "license": "MIT",
+    "files": [
+        "build"
+    ],
+    "bin": {
+        "electron-esbuild": "build/bin.js"
+    },
+    "scripts": {
+        "prepublishOnly": "tsc",
+        "watch": "tsc -w",
+        "see-local": "cd example/withoutConfig && node ../../build/bin.js --debug",
+        "see-local-with-config": "cd example/withConfig && node ../../build/bin.js --debug"
+    },
+    "devDependencies": {
+        "@zardoy/tsconfig": "^1.2.1",
+        "@zardoy/xo-config": "^0.1.0",
+        "modify-json-file": "^1.1.0",
+        "typescript": "^4.3.5",
+        "xo": "^0.44.0"
+    },
+    "dependencies": {
+        "electron": "^13.2.1",
+        "esbuild": "^0.12.22",
+        "execa": "^5.1.1",
+        "github-remote-info": "^1.0.2"
+    }
+}
