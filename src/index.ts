@@ -20,7 +20,7 @@ interface Options {
     /** Path to executable @default electron (global or local electron) */
     electronExecutable?: string
     /** @default node_modules/.electron-esbuild */
-    outdir: string
+    outdir?: string
     entryPoints?: {
         /** @default src/electron (relative from cwd) */
         base?: string
