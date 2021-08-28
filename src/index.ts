@@ -17,21 +17,16 @@ interface Options {
     //  * @default ./electron-out/index.js */
     // preloadScript?: string | null
 
-    electronPath?: string
-    output?: {
-        /** @default node_modules/.electron-esbuild (relative from cwd) */
-        base?: string
-        /** @default main.js */
-        main?: string
-        /** @default preload.js */
-        preload?: string
-    }
+    /** Path to executable @default electron (global or local electron) */
+    electronExecutable?: string
+    /** @default node_modules/.electron-esbuild */
+    outdir: string
     entryPoints?: {
         /** @default src/electron (relative from cwd) */
         base?: string
         /** @default index.ts */
         main?: string
-        /** @default preload.js */
+        /** @default preload.ts */
         preload?: string
     }
 }
@@ -58,16 +53,11 @@ export const main = async ({
     // onEveryBuild,
     // onFirstBuild,
     prodMinification = true,
-    output: outputUnmerged = {},
+    outdir = 'node_modules/.electron-esbuild',
+    electronExecutable = 'electron',
     entryPoints: entryPointsUnmerged = {},
 }: Options) => {
     const githubRepo = await getGithubRemoteInfo(process.cwd())
-    const outputPaths = {
-        base: 'node_modules/.electron-esbuild',
-        main: 'main.js',
-        preload: 'preload.js',
-        ...outputUnmerged,
-    }
     const inputPaths = {
         base: 'src/electron',
         main: 'index.ts',
@@ -88,18 +78,10 @@ export const main = async ({
         external: ['electron', 'original-fs'],
     }
 
-    // TODO won't restart electron on preload script changes and won't even reload
-    // preload script
-    await build({
-        entryPoints: [getPath(inputPaths, 'preload')],
-        outfile: getPath(outputPaths, 'preload'),
-        ...esbuildBaseOptions,
-    })
-
     // main script
     const result = await build({
-        entryPoints: [getPath(inputPaths, 'main')],
-        outfile: getPath(outputPaths, 'main'),
+        entryPoints: [getPath(inputPaths, 'main'), getPath(inputPaths, 'preload')],
+        outdir: outdir,
 
         watch: mode === 'development',
         minify: mode === 'production' && prodMinification,
@@ -116,7 +98,7 @@ export const main = async ({
                         // TODO review and compare with electron forge and electron-run
                         if (electronProcess !== undefined) electronProcess.kill()
 
-                        electronProcess = execa('electron', [getPath(outputPaths, 'main')], {
+                        electronProcess = execa(electronExecutable, [], {
                             detached: true,
                         })
                         rebuildCount++
