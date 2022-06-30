@@ -3,6 +3,7 @@ import { getGithubRemoteInfo } from 'github-remote-info'
 
 import { build, BuildOptions } from 'esbuild'
 import execa from 'execa'
+import { lilconfig } from 'lilconfig'
 
 type EmptyFn = () => unknown
 interface Options {
@@ -29,6 +30,7 @@ interface Options {
         /** @default preload.ts */
         preload?: string
     }
+    esbuildOptions?: Partial<BuildOptions>
 }
 
 export interface Env {
@@ -57,6 +59,9 @@ export const main = async ({
     electronExecutable = 'electron',
     entryPoints: entryPointsUnmerged = {},
 }: Options) => {
+    // eslint-disable-next-line unicorn/no-await-expression-member
+    const userConfig: Options = (await lilconfig('electron-esbuild').search())?.config ?? {}
+
     const githubRepo = await getGithubRemoteInfo(process.cwd())
     const inputPaths = {
         base: 'src/electron',
@@ -65,8 +70,7 @@ export const main = async ({
         ...entryPointsUnmerged,
     }
 
-    const getPath = <K extends { base: string } & Record<any, string>>(paths: K, component: keyof K) =>
-        resolve(process.cwd(), paths.base, paths[component]!)
+    const getPath = <K extends { base: string } & Record<any, string>>(paths: K, component: keyof K) => resolve(process.cwd(), paths.base, paths[component]!)
 
     const esbuildBaseOptions: BuildOptions = {
         bundle: true,
@@ -76,12 +80,13 @@ export const main = async ({
             GITHUB_REPO_URL: githubRepo && `https://github.com/${githubRepo.owner}/${githubRepo.name}`,
         }),
         external: ['electron', 'original-fs'],
+        ...userConfig.esbuildOptions,
     }
 
     // main script
     const result = await build({
         entryPoints: [getPath(inputPaths, 'main'), getPath(inputPaths, 'preload')],
-        outdir: outdir,
+        outdir,
 
         watch: mode === 'development',
         minify: mode === 'production' && prodMinification,
@@ -105,6 +110,7 @@ export const main = async ({
                     })
                 },
             },
+            ...(esbuildBaseOptions.plugins ?? []),
         ],
     })
 }

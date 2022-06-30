@@ -1,6 +1,6 @@
 {
     "name": "electron-esbuild",
-    "version": "1.0.0",
+    "version": "0.0.0-dev",
     "main": "build/index.js",
     "types": "build/index.d.ts",
     "repository": "https://github.com/zardoy/electron-esbuild.git",
@@ -16,20 +16,22 @@
         "prepublishOnly": "tsc",
         "watch": "tsc -w",
         "see-local": "cd example/withoutConfig && node ../../build/bin.js --debug",
-        "see-local-with-config": "cd example/withConfig && node ../../build/bin.js --debug"
+        "see-local-with-config": "cd example/withConfig && node ../../build/bin.js --debug",
+        "lint": "eslint src/**"
     },
     "devDependencies": {
         "@zardoy/tsconfig": "^1.2.1",
-        "@zardoy/xo-config": "^0.1.0",
         "electron": "^13.2.1",
+        "eslint": "^8.18.0",
+        "eslint-config-zardoy": "^0.2.11",
         "modify-json-file": "^1.1.0",
-        "typescript": "^4.3.5",
-        "xo": "^0.44.0"
+        "typescript": "^4.3.5"
     },
     "dependencies": {
-        "esbuild": "^0.12.22",
+        "esbuild": "^0.14.48",
         "execa": "^5.1.1",
-        "github-remote-info": "^1.0.2"
+        "github-remote-info": "^1.0.2",
+        "lilconfig": "^2.0.5"
     },
     "peerDependencies": {
         "electron": ">=10"
@@ -41,6 +43,6 @@
         "tabWidth": 4,
         "trailingComma": "all",
         "arrowParens": "avoid",
-        "printWidth": 150
+        "printWidth": 160
     }
 }
