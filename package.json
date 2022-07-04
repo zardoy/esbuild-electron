@@ -1,9 +1,8 @@
 {
-    "name": "electron-esbuild",
+    "name": "@zardoy/electron-esbuild",
     "version": "0.0.0-dev",
     "main": "build/index.js",
     "types": "build/index.d.ts",
-    "repository": "https://github.com/zardoy/electron-esbuild.git",
     "author": "Vitaly Turovsky <vital2580@icloud.com>",
     "license": "MIT",
     "files": [
