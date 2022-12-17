@@ -92,6 +92,7 @@ export const main = async (options: Options) => {
         external: ['electron', 'original-fs', ...(esbuildOptions?.external ?? [])],
     }
 
+    const { default: exitHook } = await import('exit-hook')
     // main script
     const result = await build({
         entryPoints: [getPath(inputPaths, 'main'), getPath(inputPaths, 'preload')],
@@ -112,6 +113,9 @@ export const main = async (options: Options) => {
                 setup(build) {
                     let rebuildCount = 0
                     let stopPrev: () => void
+                    exitHook(() => {
+                        stopPrev()
+                    })
                     if (mode !== 'dev') return
                     build.onEnd(async ({ errors }) => {
                         if (errors.length > 0) return
