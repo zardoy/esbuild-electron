@@ -2,12 +2,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { join, resolve } from 'path'
 import { getGithubRemoteInfo } from 'github-remote-info'
-import { startElectron } from 'electron-run/build/main/src/commands/run-electron'
+import { startElectron } from './electron-start'
 
 import { build, BuildOptions } from 'esbuild'
 import execa from 'execa'
 import { lilconfig } from 'lilconfig'
 import { mergeDeepRight } from 'rambda'
+import { existsSync } from 'fs'
 
 type EmptyFn = () => unknown
 interface Options {
@@ -23,7 +24,8 @@ interface Options {
     // preloadScript?: string | null
 
     /** Path to executable @default electron (global or local electron) */
-    electronExecutable?: string
+    // electronExecutable?: string
+    electronArgs?: string[]
     /** @default node_modules/.electron-esbuild */
     outdir?: string
     entryPoints?: {
@@ -36,6 +38,7 @@ interface Options {
     }
     esbuildOptions?: Partial<BuildOptions>
     vitePublicDir?: string
+    debug?: boolean
 }
 
 export interface Env {
@@ -64,21 +67,23 @@ export const main = async (options: Options) => {
         // onFirstBuild,
         prodMinification = true,
         outdir = 'node_modules/.electron-esbuild',
-        electronExecutable = 'electron',
+
         entryPoints: entryPointsUnmerged = {},
         esbuildOptions,
         vitePublicDir = './src/react/public',
+        debug = false,
+        electronArgs = [],
     }: Options = mergeDeepRight(options, userConfig)
 
     const githubRepo = await getGithubRemoteInfo(process.cwd()).catch(() => undefined)
+    const getPath = <K extends { base: string } & Record<any, string>>(paths: K, component: keyof K) => resolve(process.cwd(), paths.base, paths[component]!)
+    const base = 'src/electron'
     const inputPaths = {
-        base: 'src/electron',
+        base,
         main: 'index.ts',
         preload: 'preload.ts',
         ...entryPointsUnmerged,
     }
-
-    const getPath = <K extends { base: string } & Record<any, string>>(paths: K, component: keyof K) => resolve(process.cwd(), paths.base, paths[component]!)
 
     const esbuildBaseOptions: BuildOptions = {
         bundle: true,
@@ -94,17 +99,20 @@ export const main = async (options: Options) => {
 
     const { default: exitHook } = await import('exit-hook')
     // main script
+    const preloadPath = getPath(inputPaths, 'preload')
     const result = await build({
-        entryPoints: [getPath(inputPaths, 'main'), getPath(inputPaths, 'preload')],
+        entryPoints: [getPath(inputPaths, 'main'), ...(existsSync(preloadPath) ? [preloadPath] : [])],
         outdir,
         watch: mode === 'dev',
         minify: mode === 'production' && prodMinification,
         metafile: true,
         logLevel: 'info',
+        sourcemap: debug || undefined,
         ...esbuildBaseOptions,
         define: {
             'process.env.VITE_PUBLIC_DIR': JSON.stringify(vitePublicDir),
             'process.env.DEV': JSON.stringify(mode === 'dev'),
+            'import.meta': JSON.stringify('{env: {}}'),
             ...esbuildBaseOptions.define,
         },
         plugins: [
@@ -122,6 +130,7 @@ export const main = async (options: Options) => {
                         stopPrev?.()
                         ;[, stopPrev] = await startElectron({
                             path: join(outdir, 'index.js'),
+                            args: [...electronArgs, ...(debug ? ['--inspect'] : [])],
                         })
                         // TODO review and compare with electron forge and electron-run
 
