@@ -1,14 +1,14 @@
 /* eslint-disable unicorn/no-await-expression-member */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { join, resolve } from 'path'
+import { existsSync } from 'fs'
 import { getGithubRemoteInfo } from 'github-remote-info'
-import { startElectron } from './electron-start'
 
 import { build, BuildOptions } from 'esbuild'
 import execa from 'execa'
 import { lilconfig } from 'lilconfig'
 import { mergeDeepRight } from 'rambda'
-import { existsSync } from 'fs'
+import { startElectron } from './electron-start'
 
 type EmptyFn = () => unknown
 interface Options {
@@ -120,9 +120,9 @@ export const main = async (options: Options) => {
                 name: 'build-end-watch',
                 setup(build) {
                     let rebuildCount = 0
-                    let stopPrev: () => void
+                    let stopPrev: (() => void) | undefined
                     exitHook(() => {
-                        stopPrev()
+                        stopPrev?.()
                     })
                     if (mode !== 'dev') return
                     build.onEnd(async ({ errors }) => {
