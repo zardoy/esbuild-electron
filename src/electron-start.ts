@@ -1,3 +1,4 @@
+// eslint-ignore
 import childProcess from 'child_process'
 import stream from 'stream'
 import * as utils from 'electron-run/build/main/src/utils'
@@ -25,7 +26,11 @@ export async function startElectron({ path, silent = false, args = [] as string[
         return () => {
             if (!called && electronProcess) {
                 electronProcess.removeAllListeners()
-                process.kill(electronProcess.pid!)
+                try {
+                    process.kill(electronProcess.pid!)
+                } catch (err) {
+                    console.warn('Failed to kill electron: ', err.message)
+                }
                 exitByScripts = true
             }
             called = true

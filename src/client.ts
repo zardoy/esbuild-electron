@@ -1,9 +1,6 @@
 import path from 'path'
 import electronIsDev from 'electron-is-dev'
 
-// eslint-disable-next-line import/no-mutable-exports, prefer-const
-export let compiledAssetsPath = 'dist'
-
 /**
  * Get path to asset, which you should keep in public/ directory
  *
@@ -13,7 +10,7 @@ export const getFileFromPublic = (pathToFile: string): string => {
     if (electronIsDev) return path.join(process.env.VITE_PUBLIC_DIR!, pathToFile)
 
     // todo explain
-    return path.join(__dirname, compiledAssetsPath, pathToFile)
+    return path.join(__dirname, '../dist', pathToFile)
 }
 
 export const getMainPageUrl = (devPortOrUrl: string | number = 3500) => {
