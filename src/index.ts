@@ -108,9 +108,10 @@ export const main = async (options: Options) => {
         metafile: true,
         logLevel: 'info',
         sourcemap: debug || undefined,
+        keepNames: debug || undefined,
         ...esbuildBaseOptions,
         define: {
-            'process.env.VITE_PUBLIC_DIR': JSON.stringify(vitePublicDir),
+            'process.env.VITE_PUBLIC_DIR': JSON.stringify(resolve(vitePublicDir)),
             'process.env.DEV': JSON.stringify(mode === 'dev'),
             'import.meta': JSON.stringify('{env: {}}'),
             ...esbuildBaseOptions.define,
