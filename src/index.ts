@@ -85,8 +85,8 @@ export const main = async (options: Partial<ElectronEsbuildConfig>) => {
         process.stdin.resume()
         process.stdin.setEncoding('utf8')
 
-        // Handle Ctrl+C
-        process.stdin.on('data', (key: string) => {
+        // Handle Ctrl+C and restart
+        process.stdin.on('data', async (key: string) => {
             if (key === '\u0003') {
                 // Ctrl+C
                 console.log('\n🛑 Stopping Electron process...')
@@ -96,6 +96,11 @@ export const main = async (options: Partial<ElectronEsbuildConfig>) => {
                 console.log('🔄 Restarting Electron process...')
                 currentStop?.()
                 shouldAutoRestart = true
+                // Immediately restart Electron
+                ;[, currentStop] = await startElectron({
+                    path: join(outputDir, 'index.js'),
+                    args: [...electronArgs, ...(debug ? ['--inspect'] : [])],
+                })
             }
         })
     }
