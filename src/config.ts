@@ -34,7 +34,7 @@ export const defaultConfig: Required<ElectronEsbuildConfig> = {
     prodMinification: true,
     autoRestart: true,
     outdir: 'node_modules/.electron-esbuild',
-    outdirProduction: 'dist',
+    outdirProduction: 'dist/main',
     esbuildOptions: {},
     esbuildOptionsProduction: {
         sourcemap: true,

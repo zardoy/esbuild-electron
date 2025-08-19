@@ -50,7 +50,7 @@
         "electron-is-dev": "^2.0.0",
         "electron-run": "2.3.1",
         "execa": "^5.1.1",
-        "exit-hook": "^3.1.4",
+        "exit-hook": "2.2.1",
         "github-remote-info": "^1.0.2",
         "lilconfig": "^2.0.5",
         "rambda": "^7.1.4"
