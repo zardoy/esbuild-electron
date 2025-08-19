@@ -1,9 +1,21 @@
 {
-    "name": "@zardoy/electron-esbuild",
+    "name": "esbuild-electron",
     "version": "0.0.0-dev",
     "main": "build/index.js",
     "types": "build/index.d.ts",
     "author": "Vitaly Turovsky <vital2580@icloud.com>",
+    "description": "Fast and flexible Electron build tool powered by esbuild. Features hot-reload, production builds, and easy configuration.",
+    "keywords": [
+        "electron",
+        "esbuild",
+        "build",
+        "builder",
+        "electron-forge",
+        "electron-builder",
+        "development",
+        "hot-reload",
+        "typescript"
+    ],
     "license": "MIT",
     "files": [
         "build"
@@ -18,15 +30,20 @@
         "see-local-with-config": "cd example/withConfig && node ../../build/bin.js --debug",
         "lint": "eslint src/**"
     },
+    "release": {
+        "initialVersion": {
+            "version": "0.1.0"
+        }
+    },
     "devDependencies": {
         "@types/node": "^18.0.0",
         "@zardoy/tsconfig": "^1.2.1",
         "electron": "^22.0.0",
-        "esbuild": "^0.16.9",
+        "esbuild": "^0.25.9",
         "eslint": "^8.18.0",
         "eslint-config-zardoy": "^0.2.11",
         "modify-json-file": "^1.1.0",
-        "typescript": "^4.9.4"
+        "typescript": "^5.9.2"
     },
     "dependencies": {
         "chalk": "^5.2.0",
@@ -39,7 +56,7 @@
         "rambda": "^7.1.4"
     },
     "peerDependencies": {
-        "electron": ">=10",
+        "electron": "*",
         "esbuild": "*"
     },
     "prettier": {

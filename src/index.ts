@@ -1,54 +1,23 @@
+/* eslint-disable prefer-const */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable unicorn/no-await-expression-member */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { join, resolve } from 'path'
 import { existsSync } from 'fs'
 import { getGithubRemoteInfo } from 'github-remote-info'
-
-import { build, BuildOptions } from 'esbuild'
-import execa from 'execa'
+import { build, context, type BuildOptions } from 'esbuild'
 import { lilconfig } from 'lilconfig'
 import { mergeDeepRight } from 'rambda'
 import { startElectron } from './electron-start'
+import { type ElectronEsbuildConfig, defaultConfig } from './config'
 
-type EmptyFn = () => unknown
-interface Options {
-    /** `development` will start watching */
-    mode: 'dev' | 'production'
-    /** @default true disable for debugging prod build */
-    prodMinification?: boolean
-    // onFirstBuild?: EmptyFn
-    // /** Also fired on first build with i = 0 */
-    // onEveryBuild?: (i: number) => unknown
-    /** Preload script to build seperately from main. Pass `null` to disable
-    //  * @default ./electron-out/index.js */
-    // preloadScript?: string | null
-
-    /** Path to executable @default electron (global or local electron) */
-    // electronExecutable?: string
-    electronArgs?: string[]
-    /** @default node_modules/.electron-esbuild */
-    outdir?: string
-    entryPoints?: {
-        /** @default src/electron (relative from cwd) */
-        base?: string
-        /** @default index.ts */
-        main?: string
-        /** @default preload.ts */
-        preload?: string
-    }
-    esbuildOptions?: Partial<BuildOptions>
-    vitePublicDir?: string
-    debug?: boolean
-}
-
-export interface Env {
-    NODE_ENV: Options['mode']
+type Env = {
+    NODE_ENV: ElectronEsbuildConfig['mode']
     /** Note that by default `undefined` only in non-GitHub projects */
     GITHUB_REPO_URL?: string
 }
 
 const esbuildDefineEnv = (env: Env) => {
-    // TODO use lodash-lib
     const definedEnv: Record<any, string> = {}
     for (const [name, val] of Object.entries(env)) {
         if (val === undefined) continue
@@ -58,28 +27,39 @@ const esbuildDefineEnv = (env: Env) => {
     return definedEnv
 }
 
-export const main = async (options: Options) => {
-    const userConfig: Options = (await lilconfig('electron-esbuild').search())?.config ?? {}
+function mergeConfigs<T extends Record<string, any>>(base: T, ...configs: Array<Partial<T>>): T {
+    return configs.reduce((acc, config) => mergeDeepRight(acc, config), base) as T
+}
 
-    const {
-        mode = 'dev',
-        // onEveryBuild,
-        // onFirstBuild,
-        prodMinification = true,
-        outdir = 'node_modules/.electron-esbuild',
+export const main = async (options: Partial<ElectronEsbuildConfig>) => {
+    const userConfig = ((await lilconfig('electron-esbuild').search())?.config ?? {}) as Partial<ElectronEsbuildConfig>
+    const config = mergeConfigs(defaultConfig, options, userConfig) as Required<ElectronEsbuildConfig>
 
+    let {
+        mode,
+        prodMinification,
+        outdir,
+        outdirProduction,
         entryPoints: entryPointsUnmerged = {},
-        esbuildOptions,
+        esbuildOptions: esbuildOptionsConfig,
+        esbuildOptionsProduction: esbuildOptionsProductionConfig,
         vitePublicDir = './src/react/public',
-        debug = false,
+        debug,
         electronArgs = [],
-    }: Options = mergeDeepRight(options, userConfig)
+        autoRestart = true,
+    } = config
+
+    if (mode === 'production') {
+        Object.assign(esbuildOptionsConfig, esbuildOptionsProductionConfig)
+    }
+
+    const outputDir = mode === 'production' ? outdirProduction : outdir
 
     const githubRepo = await getGithubRemoteInfo(process.cwd()).catch(() => undefined)
     const getPath = <K extends { base: string } & Record<any, string>>(paths: K, component: keyof K) => resolve(process.cwd(), paths.base, paths[component]!)
-    const base = 'src/electron'
+
     const inputPaths = {
-        base,
+        base: 'src/electron',
         main: 'index.ts',
         preload: 'preload.ts',
         ...entryPointsUnmerged,
@@ -88,22 +68,46 @@ export const main = async (options: Options) => {
     const esbuildBaseOptions: BuildOptions = {
         bundle: true,
         platform: 'node',
-        ...esbuildOptions,
+        ...esbuildOptionsConfig,
         define: esbuildDefineEnv({
             NODE_ENV: mode,
             GITHUB_REPO_URL: githubRepo && `https://github.com/${githubRepo.owner}/${githubRepo.name}`,
-            ...esbuildOptions?.define,
+            ...esbuildOptionsConfig?.define,
         }),
-        external: ['electron', 'original-fs', ...(esbuildOptions?.external ?? [])],
+        external: ['electron', 'original-fs', ...(esbuildOptionsConfig?.external ?? [])],
     }
 
     const { default: exitHook } = await import('exit-hook')
+
+    // Set up stdin for restart functionality in dev mode
+    if (mode === 'dev') {
+        process.stdin.setRawMode(true)
+        process.stdin.resume()
+        process.stdin.setEncoding('utf8')
+
+        // Handle Ctrl+C
+        process.stdin.on('data', (key: string) => {
+            if (key === '\u0003') {
+                // Ctrl+C
+                console.log('\n🛑 Stopping Electron process...')
+                currentStop?.()
+                process.exit()
+            } else if (key === 'r') {
+                console.log('🔄 Restarting Electron process...')
+                currentStop?.()
+                shouldAutoRestart = true
+            }
+        })
+    }
+
+    let currentStop: (() => void) | undefined
+    let shouldAutoRestart = true
+
     // main script
     const preloadPath = getPath(inputPaths, 'preload')
-    const result = await build({
+    const esbuildOptions: BuildOptions = {
         entryPoints: [getPath(inputPaths, 'main'), ...(existsSync(preloadPath) ? [preloadPath] : [])],
-        outdir,
-        watch: mode === 'dev',
+        outdir: outputDir,
         minify: mode === 'production' && prodMinification,
         metafile: true,
         logLevel: 'info',
@@ -113,6 +117,7 @@ export const main = async (options: Options) => {
         define: {
             'process.env.VITE_PUBLIC_DIR': JSON.stringify(resolve(vitePublicDir)),
             'process.env.DEV': JSON.stringify(mode === 'dev'),
+            'process.env.NODE_ENV': JSON.stringify(mode === 'dev' ? 'development' : 'production'),
             'import.meta': JSON.stringify('{env: {}}'),
             ...esbuildBaseOptions.define,
         },
@@ -121,28 +126,56 @@ export const main = async (options: Options) => {
                 name: 'build-end-watch',
                 setup(build) {
                     let rebuildCount = 0
-                    let stopPrev: (() => void) | undefined
                     exitHook(() => {
-                        stopPrev?.()
+                        currentStop?.()
                     })
-                    if (mode !== 'dev') return
-                    build.onEnd(async ({ errors }) => {
-                        if (errors.length > 0) return
-                        stopPrev?.()
-                        ;[, stopPrev] = await startElectron({
-                            path: join(outdir, 'index.js'),
-                            args: [...electronArgs, ...(debug ? ['--inspect'] : [])],
-                        })
-                        // TODO review and compare with electron forge and electron-run
 
-                        rebuildCount++
-                    })
+                    if (mode === 'dev') {
+                        // Handle stdin for restart
+                        // process.stdin.on('data', (key: string) => {
+                        //     if (key === 'r') {
+                        //         console.log('🔄 Restarting Electron process...')
+                        //         currentStop?.()
+                        //         shouldAutoRestart = true
+                        //     }
+                        // })
+
+                        build.onEnd(async ({ errors }) => {
+                            if (errors.length > 0) return
+
+                            // Only auto-restart if enabled and shouldAutoRestart is true
+                            if (!autoRestart && !shouldAutoRestart) return
+
+                            currentStop?.()
+                            ;[, currentStop] = await startElectron({
+                                path: join(outputDir, 'index.js'),
+                                args: [...electronArgs, ...(debug ? ['--inspect'] : [])],
+                            })
+
+                            // After auto-restart, set flag to false if autoRestart is disabled
+                            if (!autoRestart) {
+                                shouldAutoRestart = false
+                            }
+
+                            rebuildCount++
+                        })
+                    }
                 },
             },
             nativeNodeModulesPlugin,
             ...(esbuildBaseOptions.plugins ?? []),
         ],
-    })
+    }
+
+    await (mode === 'dev' ? (await context(esbuildOptions)).watch() : build(esbuildOptions))
+
+    // Cleanup stdin listeners when done
+    if (mode === 'dev') {
+        exitHook(() => {
+            process.stdin.setRawMode(false)
+            process.stdin.pause()
+        })
+    }
 }
 
 const nativeNodeModulesPlugin = {
