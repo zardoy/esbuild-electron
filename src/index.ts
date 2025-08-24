@@ -11,13 +11,7 @@ import { mergeDeepRight } from 'rambda'
 import { startElectron } from './electron-start'
 import { type ElectronEsbuildConfig, defaultConfig } from './config'
 
-type Env = {
-    NODE_ENV: ElectronEsbuildConfig['mode']
-    /** Note that by default `undefined` only in non-GitHub projects */
-    GITHUB_REPO_URL?: string
-}
-
-const esbuildDefineEnv = (env: Env) => {
+const esbuildDefineEnv = (env: Record<string, string>) => {
     const definedEnv: Record<any, string> = {}
     for (const [name, val] of Object.entries(env)) {
         if (val === undefined) continue
@@ -70,8 +64,7 @@ export const main = async (options: Partial<ElectronEsbuildConfig>) => {
         platform: 'node',
         ...esbuildOptionsConfig,
         define: esbuildDefineEnv({
-            NODE_ENV: mode,
-            GITHUB_REPO_URL: githubRepo && `https://github.com/${githubRepo.owner}/${githubRepo.name}`,
+            GITHUB_REPO_URL: githubRepo ? `https://github.com/${githubRepo.owner}/${githubRepo.name}` : '',
             ...esbuildOptionsConfig?.define,
         }),
         external: ['electron', 'original-fs', ...(esbuildOptionsConfig?.external ?? [])],
